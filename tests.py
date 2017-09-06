@@ -15,6 +15,7 @@ except ImportError:
     import pickle
 
 from hotqueue import HotQueue
+import fakeredis
 
 
 class DummySerializer(object):
@@ -32,6 +33,7 @@ class HotQueueTestCase(unittest.TestCase):
     def setUp(self):
         """Create the queue instance before the test."""
         self.queue = HotQueue('testqueue')
+        self.queue_fakeredis = HotQueue('test_queue_fakeredis', overloaded_redis_cli=fakeredis.FakeStrictRedis())
     
     def tearDown(self):
         """Clear the queue after the test."""
@@ -165,6 +167,11 @@ class HotQueueTestCase(unittest.TestCase):
         self.queue.put(msg)
         self.assertEqual(self.queue.get(), "foo")
 
+    def test__hq_should_communicate_over_fakeredis(self):
+        self.queue_fakeredis.put("test content 1")
+        self.queue_fakeredis.put("test content 2")
+        self.assertEqual("test content 1", self.queue_fakeredis.get(block=True, timeout=.001))
+        self.assertEqual("test content 2", self.queue_fakeredis.get(block=True, timeout=.001))
 
 if __name__ == "__main__":
     unittest.main()
