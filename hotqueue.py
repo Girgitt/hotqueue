@@ -3,15 +3,25 @@
 """HotQueue is a Python library that allows you to use Redis as a message queue
 within your Python programs.
 """
-
+import gc
 from functools import wraps
 try:
     import cPickle as pickle
 except ImportError:
     import pickle
 
+#import marshal as pickle
+
+#pickle = pickle.Pickler()
+#pickle.fast = 1
+#import json as pickle
+#import ujson as pickle
+
 from redis import Redis
 
+import logging
+
+log = logging.getLogger("HQ")
 
 __all__ = ['HotQueue']
 
@@ -95,6 +105,7 @@ class HotQueue(object):
         :param timeout: when using :attr:`block`, if no msg is available
             for :attr:`timeout` in seconds, give up and return ``None``
         """
+
         if block:
             if timeout is None:
                 timeout = 0
@@ -104,7 +115,13 @@ class HotQueue(object):
         else:
             msg = self.__redis.lpop(self.key)
         if msg is not None and self.serializer is not None:
-            msg = self.serializer.loads(msg)
+            try:
+                gc.disable()
+                msg = self.serializer.loads(msg)
+            except:
+                log.exception("could not d")
+            finally:
+                gc.enable()
         return msg
     
     def put(self, *msgs):
@@ -119,7 +136,12 @@ class HotQueue(object):
         >>> queue.put("my message", "another message", "third message")
         """
         if self.serializer is not None:
-            msgs = map(self.serializer.dumps, msgs)
+
+            try:
+                gc.disable()
+                msgs = map(self.serializer.dumps, msgs)
+            finally:
+                gc.enable()
         self.__redis.rpush(self.key, *msgs)
     
     def worker(self, *args, **kwargs):
